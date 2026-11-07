@@ -168,7 +168,7 @@ dialog.wide { width: min(960px, 94vw); }
 .latched-chip.included { background: var(--accent-soft); color: var(--accent); }
 .latched-chip.off { background: transparent; border-color: var(--border); color: var(--muted); text-decoration: line-through; }
 .latched-chip.unselected { opacity: .55; cursor: default; }
-.latched-list .note { font-size: 12px; color: var(--muted); }
+.latched-list .note { flex-basis: 100%; font-size: 12px; color: var(--muted); }   /* always on its own line below the chips */
 
 /* empty state */
 .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
