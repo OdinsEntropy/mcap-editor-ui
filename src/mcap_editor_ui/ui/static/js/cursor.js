@@ -238,14 +238,35 @@ function drawDetail({ topic, canvas }) {
   const pk = getPick();
   if (pk) {
     const a = Math.max(0, x(Math.min(pk.a, pk.b))), b = Math.min(w, x(Math.max(pk.a, pk.b)));
-    if (b >= a) {
+    if (b >= a && pk.mode === "zoom") {                       // zoom: dashed frame like the zoom rectangle
       g.fillStyle = css("--accent-soft");
       g.fillRect(a, 0, b - a, BAR + 4);
       g.strokeStyle = css("--accent");
       g.lineWidth = 1.5;
-      g.setLineDash(pk.mode === "zoom" ? [4, 3] : []);
+      g.setLineDash([4, 3]);
       g.strokeRect(a + 0.75, 0.75, Math.max(b - a - 1.5, 0), BAR + 2.5);
       g.setLineDash([]);
+    } else if (b >= a) {                                       // new window: band with start / end handle markers
+      g.globalAlpha = 0.8;
+      g.fillStyle = css("--accent-soft");
+      g.fillRect(a, 0, b - a, BAR + 4);
+      const handle = (hx) => {                                 // pill like the handles on the bar
+        if (hx < -6 || hx > w + 6) return;
+        const hw = 10, hh = 18, hy = (BAR + 4 - hh) / 2;
+        g.beginPath();
+        g.roundRect(hx - hw / 2, hy, hw, hh, hw / 2);
+        g.fillStyle = css("--surface");
+        g.fill();
+        g.lineWidth = 2;
+        g.strokeStyle = css("--accent");
+        g.stroke();
+      };
+      g.fillStyle = css("--accent");
+      g.fillRect(a, 0, 1.5, BAR + 4);
+      g.fillRect(b - 1.5, 0, 1.5, BAR + 4);
+      handle(x(Math.min(pk.a, pk.b)));
+      handle(x(Math.max(pk.a, pk.b)));
+      g.globalAlpha = 1;
     }
   }
   // preview and cursor lines
