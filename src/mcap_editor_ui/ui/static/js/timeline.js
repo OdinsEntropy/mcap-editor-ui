@@ -164,8 +164,11 @@ function stick(t, ev) {
 }
 
 // dragging: handles move one end, the range moves both (its nearer edge sticks to the cursor)
+const picking = (ev) => ev.ctrlKey || ev.metaKey || ev.shiftKey;   // Ctrl / Shift press: range picking on the bar
+
 function drag(kind) {
   return (ev) => {
+    if (picking(ev)) return;                          // handled by the bar: zoom / window range
     ev.preventDefault();
     ev.stopPropagation();
     const box = $("timeline").getBoundingClientRect();
@@ -208,6 +211,7 @@ $("tl-range").addEventListener("pointerdown", drag("range"));
 
 // press in the zoom rectangle: drag moves the zoomed range (pans the topic timelines); a click places the cursor
 $("tl-view").addEventListener("pointerdown", (ev) => {
+  if (picking(ev)) return;
   ev.preventDefault();
   ev.stopPropagation();
   const el = $("tl-view");
@@ -235,10 +239,117 @@ $("tl-view").addEventListener("pointerdown", (ev) => {
   el.addEventListener("pointerup", up);
 });
 
+// edges of the zoom rectangle: drag to widen / narrow the zoomed range
+for (const edge of document.querySelectorAll(".tl-view-edge")) {
+  edge.addEventListener("pointerdown", (ev) => {
+    if (picking(ev)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const left = edge.classList.contains("l");
+    try { edge.setPointerCapture(ev.pointerId); } catch { /* synthetic event */ }
+    const move = (m) => {
+      const t = timeAt(m.clientX);
+      if (left) setView(Math.min(t, v1 - duration / 20000), v1);
+      else setView(v0, Math.max(t, v0 + duration / 20000));
+    };
+    const up = () => {
+      edge.removeEventListener("pointermove", move);
+      edge.removeEventListener("pointerup", up);
+    };
+    edge.addEventListener("pointermove", move);
+    edge.addEventListener("pointerup", up);
+  });
+}
+
+// range picking with a modifier, on the bar and in the topic timelines: Ctrl = zoom range, Shift = new window.
+// Press + drag + release sets it at once; a click sets one end and a second click (same key) the other, the
+// preview following the mouse in between. Esc or a click without the key cancels.
+let pick = null;                                   // {mode: "zoom" | "cut", a, b, pending}
+const pickListeners = [];
+export const getPick = () => pick;
+export function onPickChange(f) {
+  pickListeners.push(f);
+}
+function pickChanged() {
+  const el = $("tl-pick");
+  el.hidden = !pick;
+  if (pick) {
+    el.classList.toggle("cut", pick.mode === "cut");
+    el.style.left = `${pct(Math.min(pick.a, pick.b))}%`;
+    el.style.width = `${Math.abs(pct(pick.b) - pct(pick.a))}%`;
+  }
+  pickListeners.forEach((f) => f(pick));
+}
+function applyPick(mode, a, b) {
+  const lo = Math.max(0, Math.min(a, b)), hi = Math.min(duration, Math.max(a, b));
+  if (hi - lo < duration / 1e6) return;                // a range of (almost) nothing: ignore
+  if (mode === "zoom") setView(lo, hi);
+  else set(lo, hi >= duration ? null : hi);           // a window change like any other (undo)
+}
+/** Start or finish picking a range with the press ``ev`` on ``el``; ``timeOf(clientX)`` gives its time. */
+export function startPick(ev, el, timeOf) {
+  const mode = ev.shiftKey ? "cut" : "zoom";
+  const t = timeOf(ev.clientX);
+  if (pick?.pending && pick.mode === mode) {           // second click: the other end
+    const a = pick.a;
+    pick = null;
+    pickChanged();
+    applyPick(mode, a, t);
+    return;
+  }
+  pick = { mode, a: t, b: t, pending: false };
+  pickChanged();
+  try { el.setPointerCapture(ev.pointerId); } catch { /* synthetic event */ }
+  const x0 = ev.clientX;
+  let moved = false;
+  const move = (m) => {
+    if (!moved && Math.abs(m.clientX - x0) < 4) return;
+    moved = true;
+    pick.b = timeOf(m.clientX);
+    pickChanged();
+  };
+  const up = (u) => {
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", up);
+    if (moved) {
+      const b = timeOf(u.clientX), a = pick.a;
+      pick = null;
+      pickChanged();
+      applyPick(mode, a, b);
+    } else {
+      pick.pending = true;                             // wait for the second click
+      pickChanged();
+    }
+  };
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", up);
+}
+/** Mouse over the bar or a timeline at time ``t``: a pending range follows it. */
+export function pickHover(t) {
+  if (pick?.pending) {
+    pick.b = t;
+    pickChanged();
+  }
+}
+export function cancelPick() {
+  if (pick) {
+    pick = null;
+    pickChanged();
+  }
+}
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && pick) cancelPick();
+});
+
 // press on the bar outside handles, range and zoom rectangle: place the cursor and drag it
 $("timeline").addEventListener("pointerdown", (ev) => {
   if (duration <= 0) return;
   ev.preventDefault();
+  if (picking(ev)) {
+    startPick(ev, $("timeline"), timeAt);
+    return;
+  }
+  cancelPick();
   const el = $("timeline");
   try { el.setPointerCapture(ev.pointerId); } catch { /* synthetic event: the click still places the cursor */ }
   cursorHandler.down(timeAt(ev.clientX), ev);

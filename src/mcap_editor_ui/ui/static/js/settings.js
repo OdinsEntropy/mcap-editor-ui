@@ -69,8 +69,12 @@ const KEYS = [
     ["Move the window start / end", "Drag a handle on the bar"],
     ["… and stick it to the cursor", "Alt + drag a handle"],
     ["Move the whole window", "Drag the range on the bar"],
+    ["Set a new window by range", "Shift + drag on the bar or a timeline (or Shift + click, Shift + click)"],
+    ["Zoom the topic timelines to a range", "Ctrl + drag on the bar or a timeline (or Ctrl + click, Ctrl + click)"],
     ["Zoom the topic timelines", "Wheel on the bar, or Ctrl + wheel on a timeline"],
     ["Move the zoomed range", "Drag the dashed rectangle on the bar, or Shift + wheel"],
+    ["Widen / narrow the zoomed range", "Drag an edge of the dashed rectangle"],
+    ["Cancel a range being picked", "Esc"],
   ]],
   ["General", [
     ["Open a recording", "Ctrl + O"],

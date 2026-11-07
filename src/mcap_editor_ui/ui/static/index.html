@@ -110,10 +110,11 @@
           <span class="chip" id="window-chip"></span>
           <span class="spacer"></span>
           <span class="key-hint" title="Alt+click in a topic timeline snaps the cursor to that topic's nearest message; Alt while dragging a window handle makes it stick to the cursor"><kbd>Alt</kbd><span>snap</span></span>
-          <span class="key-hint" title="Ctrl + mouse wheel on a topic timeline (or the plain wheel on the bar) zooms the topic timelines; Shift + wheel moves them">
+          <span class="key-hint" title="Zoom the topic timelines: Ctrl + drag on the bar or a timeline (or Ctrl + click, Ctrl + click), Ctrl + wheel on a timeline, the plain wheel on the bar. Shift + wheel moves them; the zoom rectangle on the bar can be dragged and its edges widened">
             <kbd>Ctrl</kbd>
             <svg viewBox="0 0 24 24" class="icon wheel"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v3"/></svg><span>zoom</span>
           </span>
+          <span class="key-hint" title="New window (start / end): Shift + drag on the bar or a timeline, or Shift + click, Shift + click. Esc cancels"><kbd>Shift</kbd><span>cut</span></span>
           <button type="button" class="icon-btn sm" id="keys-btn" title="All key combinations">
             <svg viewBox="0 0 24 24" class="icon"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
           </button>
@@ -146,7 +147,8 @@
           <div class="timeline-col" id="timeline-col">
             <div class="timeline" id="timeline" title="Drag the handles or the range; click: cursor; wheel: zoom the topic timelines, Shift+wheel: move">
               <div class="tl-track"></div>
-              <div class="tl-view" id="tl-view" hidden title="Range shown in the topic timelines"></div>
+              <div class="tl-view" id="tl-view" hidden title="Range shown in the topic timelines: drag to move, drag an edge to widen or narrow"><i class="tl-view-edge l"></i><i class="tl-view-edge r"></i></div>
+              <div class="tl-pick" id="tl-pick" hidden></div>
               <div class="tl-range" id="tl-range"></div>
               <div class="tl-handle" id="tl-h0"></div>
               <div class="tl-handle" id="tl-h1"></div>

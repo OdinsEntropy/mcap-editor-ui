@@ -218,6 +218,12 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border: 1px soli
 .timeline-col { position: relative; min-width: 0; }
 .tl-view { position: absolute; top: 9px; height: 18px; border: 1.5px dashed var(--accent); border-radius: 5px; background: var(--accent-soft); cursor: grab; z-index: 1; }
 .tl-view.drag { cursor: grabbing; }
+.tl-view-edge { position: absolute; top: -3px; bottom: -3px; width: 9px; cursor: ew-resize; }
+.tl-view-edge.l { left: -5px; }
+.tl-view-edge.r { right: -5px; }
+/* range being picked with Ctrl (zoom: dashed like the zoom rectangle) or Shift (new window: solid like the range) */
+.tl-pick { position: absolute; top: 6px; height: 24px; border: 1.5px dashed var(--accent); border-radius: 5px; background: var(--accent-soft); pointer-events: none; z-index: 3; }
+.tl-pick.cut { border-style: solid; }
 .cursor { position: absolute; top: 4px; height: 30px; width: 0; border-left: 1.5px solid var(--accent); pointer-events: none; z-index: 2; }
 .cursor-label { position: absolute; top: -2px; left: 4px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cursor-label.flip { left: auto; right: 4px; }

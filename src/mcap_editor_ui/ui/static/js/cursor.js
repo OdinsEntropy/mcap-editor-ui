@@ -9,7 +9,8 @@
 // while zooming, so zooming in makes the bars wider; the reset returns to whole recording / 400.
 
 import { api } from "./api.js";
-import { fractionOf, getDuration, getView, onViewChange, panView, setCursorHandler, tickValues, timeAt, wheelFactor, zoomView } from "./timeline.js";
+import { cancelPick, fractionOf, getDuration, getPick, getView, onPickChange, onViewChange, panView, pickHover, setCursorHandler, startPick,
+  tickValues, timeAt, wheelFactor, zoomView } from "./timeline.js";
 import { onDetailRender, redrawDetails, setFocus } from "./topics.js";
 import { $, debounce, fmtS, parseSeconds, toast } from "./ui.js";
 
@@ -125,7 +126,9 @@ function setHover(t) {
 }
 $("timeline-col").addEventListener("pointermove", (ev) => {
   const box = $("timeline").getBoundingClientRect();
-  setHover(info && ev.clientX >= box.left && ev.clientX <= box.right ? timeAt(ev.clientX) : null);
+  const inside = info && ev.clientX >= box.left && ev.clientX <= box.right;
+  setHover(inside ? timeAt(ev.clientX) : null);
+  if (inside) pickHover(timeAt(ev.clientX));
 });
 $("timeline-col").addEventListener("pointerleave", () => setHover(null));
 
@@ -231,6 +234,20 @@ function drawDetail({ topic, canvas }) {
     g.fillText(label, Math.min(Math.max(tx, 0), w), H - 4);
   });
   g.textAlign = "left";
+  // range being picked (Ctrl: zoom, dashed; Shift: new window, solid)
+  const pk = getPick();
+  if (pk) {
+    const a = Math.max(0, x(Math.min(pk.a, pk.b))), b = Math.min(w, x(Math.max(pk.a, pk.b)));
+    if (b >= a) {
+      g.fillStyle = css("--accent-soft");
+      g.fillRect(a, 0, b - a, BAR + 4);
+      g.strokeStyle = css("--accent");
+      g.lineWidth = 1.5;
+      g.setLineDash(pk.mode === "zoom" ? [4, 3] : []);
+      g.strokeRect(a + 0.75, 0.75, Math.max(b - a - 1.5, 0), BAR + 2.5);
+      g.setLineDash([]);
+    }
+  }
   // preview and cursor lines
   if (hover != null) {
     g.fillStyle = css("--muted");
@@ -304,6 +321,11 @@ function wireDetail({ topic, canvas }) {
   canvas.addEventListener("pointerdown", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey) {               // Ctrl: zoom range, Shift: new window
+      startPick(ev, canvas, timeIn);
+      return;
+    }
+    cancelPick();
     try { canvas.setPointerCapture(ev.pointerId); } catch { /* synthetic event */ }
     setCursor(timeIn(ev.clientX) * 1e9);
     const move = (m) => setCursor(timeIn(m.clientX) * 1e9);
@@ -322,6 +344,7 @@ function wireDetail({ topic, canvas }) {
   canvas.addEventListener("pointermove", (ev) => {
     over = { topic, t: timeIn(ev.clientX) };
     hoverAt(ev.altKey);
+    pickHover(over.t);
   });
   canvas.addEventListener("pointerleave", () => {
     over = null;
@@ -341,6 +364,8 @@ function wireDetail({ topic, canvas }) {
     }
   }, { passive: false });
 }
+
+onPickChange(() => redrawDetails());
 
 onViewChange(({ v0, v1 }) => {
   if (auto) setBinWidth((v1 - v0) / BINS);
