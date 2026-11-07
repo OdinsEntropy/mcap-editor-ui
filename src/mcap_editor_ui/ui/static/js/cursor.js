@@ -9,8 +9,8 @@
 // while zooming, so zooming in makes the bars wider; the reset returns to whole recording / 400.
 
 import { api } from "./api.js";
-import { cancelPick, fractionOf, getDuration, getPick, getView, onPickChange, onViewChange, panView, pickHover, setCursorHandler, startPick,
-  tickValues, timeAt, wheelFactor, zoomView } from "./timeline.js";
+import { barPickCtx, cancelPick, fractionOf, getDuration, getPick, getView, onPickChange, onViewChange, panView, pickHover, setCursorHandler,
+  setMessageSnap, startPick, tickValues, timeAt, wheelFactor, zoomView } from "./timeline.js";
 import { onDetailRender, redrawDetails, setFocus } from "./topics.js";
 import { $, debounce, fmtS, parseSeconds, toast } from "./ui.js";
 
@@ -128,7 +128,7 @@ $("timeline-col").addEventListener("pointermove", (ev) => {
   const box = $("timeline").getBoundingClientRect();
   const inside = info && ev.clientX >= box.left && ev.clientX <= box.right;
   setHover(inside ? timeAt(ev.clientX) : null);
-  if (inside) pickHover(timeAt(ev.clientX));
+  if (inside) pickHover(ev, barPickCtx);
 });
 $("timeline-col").addEventListener("pointerleave", () => setHover(null));
 
@@ -246,10 +246,12 @@ function drawDetail({ topic, canvas }) {
       g.setLineDash([4, 3]);
       g.strokeRect(a + 0.75, 0.75, Math.max(b - a - 1.5, 0), BAR + 2.5);
       g.setLineDash([]);
-    } else if (b >= a) {                                       // new window: band with start / end handle markers
-      g.globalAlpha = 0.8;
+    } else if (b >= a) {                                       // new window: same box, solid, with start / end handles
       g.fillStyle = css("--accent-soft");
       g.fillRect(a, 0, b - a, BAR + 4);
+      g.strokeStyle = css("--accent");
+      g.lineWidth = 1.5;
+      g.strokeRect(a + 0.75, 0.75, Math.max(b - a - 1.5, 0), BAR + 2.5);
       const handle = (hx) => {                                 // pill like the handles on the bar
         if (hx < -6 || hx > w + 6) return;
         const hw = 10, hh = 18, hy = (BAR + 4 - hh) / 2;
@@ -261,12 +263,8 @@ function drawDetail({ topic, canvas }) {
         g.strokeStyle = css("--accent");
         g.stroke();
       };
-      g.fillStyle = css("--accent");
-      g.fillRect(a, 0, 1.5, BAR + 4);
-      g.fillRect(b - 1.5, 0, 1.5, BAR + 4);
       handle(x(Math.min(pk.a, pk.b)));
       handle(x(Math.max(pk.a, pk.b)));
-      g.globalAlpha = 1;
     }
   }
   // preview and cursor lines
@@ -333,6 +331,11 @@ for (const type of ["keydown", "keyup"]) {
 function wireDetail({ topic, canvas }) {
   if (canvas.dataset.wired) return;
   canvas.dataset.wired = "1";
+  const pickCtx = {                                             // range picking in this timeline
+    timeOf: (x) => timeIn(x),
+    secPerPx: () => { const { v0, v1 } = getView(); return (v1 - v0) / canvas.getBoundingClientRect().width; },
+    topic,
+  };
   const timeIn = (clientX) => {
     const b = canvas.getBoundingClientRect();
     const { v0, v1 } = getView();
@@ -342,8 +345,8 @@ function wireDetail({ topic, canvas }) {
   canvas.addEventListener("pointerdown", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    if (ev.ctrlKey || ev.metaKey || ev.shiftKey) {               // Ctrl: zoom range, Shift: new window
-      startPick(ev, canvas, timeIn);
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || getPick()?.pending) {   // Ctrl: zoom range, Shift: new window
+      startPick(ev, canvas, pickCtx);
       return;
     }
     cancelPick();
@@ -365,7 +368,7 @@ function wireDetail({ topic, canvas }) {
   canvas.addEventListener("pointermove", (ev) => {
     over = { topic, t: timeIn(ev.clientX) };
     hoverAt(ev.altKey);
-    pickHover(over.t);
+    pickHover(ev, pickCtx);
   });
   canvas.addEventListener("pointerleave", () => {
     over = null;
@@ -387,6 +390,16 @@ function wireDetail({ topic, canvas }) {
 }
 
 onPickChange(() => redrawDetails());
+// range picking in a topic timeline with Alt snaps to that topic's messages (when no cursor / window / zoom end is near)
+setMessageSnap(async (topic, t) => {
+  if (!info) return null;
+  try {
+    const r = await api.step(info.path, topic, Math.round(t * 1e9), 0);
+    return r.t == null ? null : r.t / 1e9;
+  } catch {
+    return null;
+  }
+});
 
 onViewChange(({ v0, v1 }) => {
   if (auto) setBinWidth((v1 - v0) / BINS);

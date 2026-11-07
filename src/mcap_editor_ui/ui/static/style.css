@@ -223,9 +223,9 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border: 1px soli
 .tl-view-edge.r { right: -5px; }
 /* range being picked with Ctrl (zoom: dashed like the zoom rectangle) or Shift (new window: solid like the range) */
 .tl-pick { position: absolute; top: 6px; height: 24px; border: 1.5px dashed var(--accent); border-radius: 5px; background: var(--accent-soft); pointer-events: none; z-index: 3; }
-/* new window: looks like the window it becomes (band + start / end handles), a little transparent as a preview */
-.tl-pick.cut { top: 14px; height: 8px; border: 1px solid var(--accent); border-radius: 4px; opacity: .75; }
-.tl-pick.cut::before, .tl-pick.cut::after { content: ""; position: absolute; top: -7px; width: 12px; height: 20px;
+/* new window: the same box as the zoom preview, but solid and with the start / end handles at its ends */
+.tl-pick.cut { border-style: solid; }
+.tl-pick.cut::before, .tl-pick.cut::after { content: ""; position: absolute; top: 0; width: 12px; height: 20px;
   border-radius: 999px; background: var(--surface); border: 2px solid var(--accent); box-sizing: border-box; }
 .tl-pick.cut::before { left: -6px; }
 .tl-pick.cut::after { right: -6px; }
