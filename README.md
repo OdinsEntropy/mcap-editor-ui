@@ -9,9 +9,10 @@ any size with about 50 MB of RAM, without ROS.
 ## Features
 
 - **Topics:** select what to export, filter and search, sort by any column or by hand.
-- **Timelines:** open a topic to see its messages over time; gaps and dropouts show at a glance. Zoom in, place a
-  cursor; with Alt it snaps to messages.
-- **Time window:** drag the start / end on the bar or type it; with Alt the handles stick to the cursor.
+- **Timelines:** open a topic to see its messages over time; gaps and dropouts show at a glance. Ctrl + drag zooms
+  to a range, place a cursor; with Alt it snaps to messages.
+- **Time window:** Shift + drag on the bar or a timeline, drag the start / end handles or type it; with Alt the
+  handles stick to the cursor.
 - **Latched topics** like `/tf_static` stay in a cut that starts later.
 - **Output:** never overwrites a file; optional other compression (zstd, lz4, none) and splitting by duration or
   size, like `ros2 bag record`.
