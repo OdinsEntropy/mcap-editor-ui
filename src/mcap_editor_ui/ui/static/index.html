@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCAP Editor UI</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>
+    // theme before the CSS paints: stored choice, else the system preference
+    (() => {
+      const t = localStorage.getItem("mcap-editor-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = t;
+      // accent from the last loaded settings (the page applies the current settings right after loading)
+      const acc = localStorage.getItem("mcap-editor-accent");
+      if (acc && acc !== "orange") document.documentElement.dataset.accent = acc;
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path class="bm-line" d="M7 10h11M7 16h7M7 22h4"/><path class="bm-pen" d="M23.2 7.6a2 2 0 0 1 2.8 0l1 1a2 2 0 0 1 0 2.8L17 21.4l-4.9 1.4 1.4-4.9z"/></svg><b>MCAP Editor UI</b><span class="muted">Cut recordings by topic and time</span></div>
+    <div></div>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="open-btn" title="Choose an .mcap file">Open</button>
+      <button class="icon-btn" id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+      <button class="icon-btn" id="theme-btn" title="Switch between dark and light theme">
+        <svg viewBox="0 0 24 24" class="icon"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar card">
+      <section class="side-section" id="recording-section">
+        <h3>Recording</h3>
+        <div id="recording-empty" class="muted small">No file open</div>
+        <div id="recording-info" hidden>
+          <div class="file-name" id="rec-name"></div>
+          <div class="kv"><span>Size</span><span id="rec-size"></span></div>
+          <div class="kv"><span>Duration</span><span id="rec-duration"></span></div>
+          <div class="kv"><span>Start</span><span id="rec-start"></span></div>
+          <div class="kv"><span>Compression</span><span id="rec-compression"></span></div>
+          <div class="kv" id="rec-noindex" hidden><span class="danger-text" title="Without an index the whole file is read for every edit, and sizes are unknown">No index</span><span></span></div>
+        </div>
+      </section>
+
+      <section class="side-section" id="output-section" hidden>
+        <h3>Output</h3>
+        <div class="field-row">
+          <input type="text" id="out-path" spellcheck="false" title="Output file; never overwritten">
+          <button class="icon-btn sm" id="out-browse" title="Choose folder and name">
+            <svg viewBox="0 0 24 24" class="icon"><path d="M3 7h6l2 2h10v10H3z"/></svg>
+          </button>
+        </div>
+        <div class="out-problem" id="out-problem" hidden>
+          <span id="out-problem-text"></span>
+          <button class="btn accent-ghost sm" id="out-alt" hidden></button>
+        </div>
+        <div class="switch-row" title="The last messages of latched topics (e.g. /tf_static) from before the start are included, with the start as their time, so the cut still has them. Only for selected topics; click a chip below to leave one out.">
+          <span>Include latched messages</span>
+          <label class="switch"><input type="checkbox" id="keep-latched" checked><span></span></label>
+        </div>
+        <div class="latched-list" id="latched-list"></div>
+        <div class="switch-row" title="Write the output with another chunk compression than the input">
+          <span>Change compression</span>
+          <label class="switch"><input type="checkbox" id="comp-on"><span></span></label>
+        </div>
+        <div class="option-body" id="comp-body" hidden>
+          <div class="segmented" id="comp-choice">
+            <button data-v="zstd" title="Good compression, fast to read (default of rosbag2)">zstd</button>
+            <button data-v="lz4" title="Faster to write and read, larger files">lz4</button>
+            <button data-v="none" title="No compression: largest files, fastest">None</button>
+          </div>
+        </div>
+        <div class="switch-row" title="Write several files <name>_0.mcap, _1 … (like ros2 bag record --max-bag-duration / --max-bag-size); each part starts with the latched messages">
+          <span>Split</span>
+          <label class="switch"><input type="checkbox" id="split-on"><span></span></label>
+        </div>
+        <div class="option-body split-body" id="split-body" hidden>
+          <input type="text" inputmode="decimal" id="split-value" class="num" title="Length or size of one part">
+          <div class="segmented" id="split-mode">
+            <button data-v="duration" title="Parts of a fixed duration">s</button>
+            <button data-v="size" title="Parts of about this size (a part ends at the first chunk past it)">GB</button>
+          </div>
+        </div>
+        <div class="switch-row sub" id="split-repeat-row" hidden title="Start every part with the latched messages so it opens correctly on its own; off: only part 0 gets them, so joined parts have no duplicates">
+          <span>Latched in every part</span>
+          <label class="switch"><input type="checkbox" id="split-repeat" checked><span></span></label>
+        </div>
+        <div class="kv"><span>Topics</span><span id="sum-topics">0</span></div>
+        <div class="kv"><span>Window</span><span id="sum-window"></span></div>
+        <div class="kv" title="Estimated from the message indexes: each topic's share of its chunks, scaled to the window"><span>Estimated size</span><span id="sum-size">–</span></div>
+        <button class="btn primary wide" id="export-btn" disabled>Export</button>
+      </section>
+    </aside>
+
+    <section class="canvas">
+      <div class="empty" id="empty-state">
+        <p>Open a recording with <b class="accent-text">Open</b></p>
+        <div class="recent" id="recent-list"></div>
+      </div>
+
+      <div class="card" id="window-card" hidden>
+        <div class="card-head">
+          <h2>Time window</h2>
+          <span class="chip" id="window-chip"></span>
+          <span class="spacer"></span>
+          <span class="key-hint" title="Alt+click in a topic timeline snaps the cursor to that topic's nearest message; Alt while dragging a window handle makes it stick to the cursor"><kbd>Alt</kbd><span>snap</span></span>
+          <span class="key-hint" title="Ctrl + mouse wheel on a topic timeline (or the plain wheel on the bar) zooms the topic timelines; Shift + wheel moves them">
+            <kbd>Ctrl</kbd>
+            <svg viewBox="0 0 24 24" class="icon wheel"><rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v3"/></svg><span>zoom</span>
+          </span>
+          <button type="button" class="icon-btn sm" id="keys-btn" title="All key combinations">
+            <svg viewBox="0 0 24 24" class="icon"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+          </button>
+        </div>
+        <div class="window-body" id="window-body">
+          <div class="window-controls">
+            <div class="ctl-group">
+              <span class="group-name" title="The part of the recording that is exported">Window</span>
+              <label class="ctl"><span>Start</span><input type="text" inputmode="decimal" id="win-start" class="num" title="Seconds after the first message"><i>s</i></label>
+              <label class="ctl"><span>End</span><input type="text" inputmode="decimal" id="win-end" class="num" title="Seconds after the first message; the end of the recording if empty or larger"><i>s</i></label>
+              <button type="button" class="icon-btn sm" id="window-reset" title="Window = whole recording"><svg viewBox="0 0 24 24" class="icon"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg></button>
+            </div>
+            <div class="ctl-group">
+              <span class="group-name">Cursor</span>
+              <label class="ctl"><input type="text" inputmode="decimal" id="cur-time" class="num" placeholder="–" title="Cursor time in seconds after the first message; type a value to place it exactly there. ← / → step it through the messages of the last used topic (marked in the topic list)."><i>s</i></label>
+            </div>
+            <div class="ctl-group">
+              <span class="group-name" title="The bars in the opened topic rows">Timelines</span>
+              <label class="ctl"><span>Bin</span><input type="text" inputmode="decimal" id="bin-width" class="num" title="Width of one bar in the topic timelines; set when the file opens and kept while zooming"><i>s</i></label>
+              <button type="button" class="chip-toggle mini framed" id="bin-auto" title="Auto bin width: follows the zoom (about 400 bars across the visible range)">A</button>
+              <button type="button" class="icon-btn sm framed" id="bin-reset" title="Bin width back to the start value (whole recording / 400), Auto off"><svg viewBox="0 0 24 24" class="icon"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg></button>
+            </div>
+            <span class="ctl zoom-ctl">
+              <span>Zoom</span><span class="chip" id="zoom-chip" title="Wheel on the bar or Ctrl+wheel on a timeline: zoom; Shift+wheel or drag the rectangle on the bar: move">1×</span>
+              <button type="button" class="icon-btn sm" id="zoom-reset" disabled title="Zoom out to the whole recording">
+                <svg viewBox="0 0 24 24" class="icon"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M21 21l-5-5"/></svg>
+              </button>
+            </span>
+          </div>
+          <div class="timeline-col" id="timeline-col">
+            <div class="timeline" id="timeline" title="Drag the handles or the range; click: cursor; wheel: zoom the topic timelines, Shift+wheel: move">
+              <div class="tl-track"></div>
+              <div class="tl-view" id="tl-view" hidden title="Range shown in the topic timelines"></div>
+              <div class="tl-range" id="tl-range"></div>
+              <div class="tl-handle" id="tl-h0"></div>
+              <div class="tl-handle" id="tl-h1"></div>
+              <div class="tl-ticks" id="tl-ticks"></div>
+            </div>
+            <div class="cursor" id="cursor" hidden><span class="cursor-label" id="cursor-label"></span></div>
+            <div class="cursor preview" id="preview" hidden><span class="cursor-label preview-label" id="preview-label"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card grow" id="topics-card" hidden>
+        <div class="card-head">
+          <h2>Topics</h2>
+          <span class="chip" id="topics-chip"></span>
+          <button class="btn ghost sm" id="sel-invert" title="Invert the selection of the shown topics">Invert</button>
+          <button class="icon-btn sm" id="undo-btn" title="Undo (Ctrl+Z)" disabled>
+            <svg viewBox="0 0 24 24" class="icon"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <button class="icon-btn sm" id="redo-btn" title="Redo (Ctrl+Shift+Z or Ctrl+Y)" disabled>
+            <svg viewBox="0 0 24 24" class="icon"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+          </button>
+          <span class="spacer"></span>
+          <div class="filter-seg" title="Filters: show only these topics (several at once: topics that match all)">
+            <span class="seg-name">Show</span>
+            <button class="chip-toggle" id="filter-latched" title="Show only latched topics">Latched</button>
+            <button class="chip-toggle" id="filter-open" title="Show only opened topics">Open</button>
+            <button class="chip-toggle" id="filter-selected" title="Show only selected topics">Selected</button>
+          </div>
+          <button class="icon-btn sm" id="cols-reset" title="Reset column widths" hidden>
+            <svg viewBox="0 0 24 24" class="icon"><path d="M4 6h16M4 12h16M4 18h16M9 4v16M15 4v16"/></svg>
+          </button>
+          <button class="icon-btn sm" id="list-reset" title="Reset filters, search and sorting (the selection stays)">
+            <svg viewBox="0 0 24 24" class="icon"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg>
+          </button>
+          <input type="search" id="topic-search" placeholder="Search" title="Filter by topic or schema; * stands for any characters, e.g. *tf*static">
+        </div>
+        <div class="table-wrap">
+          <table class="topics" id="topic-table">
+            <colgroup>
+              <col data-col="grip"><col data-col="check"><col data-col="open"><col data-col="topic"><col data-col="count"><col data-col="rate">
+              <col data-col="size"><col data-col="share"><col data-col="schema">
+            </colgroup>
+            <thead><tr>
+              <th class="c-grip" data-sort="manual" title="Order: your own order (drag rows by their ⠿ grip to set it). After sorting by another column, click here to get it back. It has no direction."><svg viewBox="0 0 10 16" class="grip-dots"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg><span class="arrow"></span></th>
+              <th class="c-check" data-sort="selected" title="Click the box: select all shown / none. Click beside it: group selected topics first (▲ first, ▼ last, again: off)"><span class="head-check" id="head-check"><span class="check"></span></span><span class="arrow"></span></th>
+              <th class="c-open" data-sort="open" title="Click the arrow: open / close all shown topics. Click beside it: group opened topics first (▲ first, ▼ last, again: off)"><span class="head-chev" id="head-chev"><svg viewBox="0 0 12 12" class="chev"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg></span><span class="arrow"></span></th>
+              <th data-sort="topic" title="Sort by topic (click again: descending, then off)">Topic<span class="arrow"></span><i class="col-grip"></i></th>
+              <th class="r" data-sort="count" title="Sort by message count">Messages<span class="arrow"></span><i class="col-grip"></i></th>
+              <th class="r" data-sort="rate" title="Sort by rate">Rate<span class="arrow"></span><i class="col-grip"></i></th>
+              <th class="r" data-sort="size" title="Estimated compressed share of the file, from the message indexes; click to sort">Size<span class="arrow"></span><i class="col-grip"></i></th>
+              <th class="r" data-sort="share" title="Sort by share">Share<span class="arrow"></span><i class="col-grip"></i></th>
+              <th data-sort="schema" title="Sort by schema">Schema<span class="arrow"></span><i class="col-grip"></i></th>
+            </tr></thead>
+            <tbody id="topic-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="loading" hidden>
+        <div class="card progress-card">
+          <div class="loading-name"><b id="load-name"></b><span class="muted" id="load-size"></span></div>
+          <div class="steps" id="load-steps">
+            <span class="step" data-step="Summary" title="Topics, counts and time range from the end of the file (a full read if the file has no summary)"><i></i>Summary</span>
+            <span class="step" data-step="Message indexes" title="Sizes per topic from the message indexes after each chunk"><i></i>Message indexes</span>
+          </div>
+          <div class="bar"><div class="bar-fill indeterminate" id="load-fill"></div></div>
+          <div class="progress-detail"><span id="load-detail"></span><span class="muted" id="load-time"></span></div>
+          <div class="dialog-actions">
+            <span class="spacer"></span>
+            <button class="btn danger" id="load-stop">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="progress" hidden>
+        <div class="card progress-card">
+          <div class="steps" id="steps">
+            <span class="step" data-step="Preparing"><i></i>Preparing</span>
+            <span class="step" data-step="Copying"><i></i>Copying</span>
+            <span class="step" data-step="Done"><i></i>Done</span>
+          </div>
+          <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+          <div class="progress-detail"><span id="prog-detail"></span><span class="muted" id="prog-time"></span></div>
+          <div class="result" id="result" hidden></div>
+          <div class="dialog-actions">
+            <button class="btn danger" id="cancel-btn">Cancel</button>
+            <span class="spacer"></span>
+            <button class="btn primary" id="close-progress" hidden>Close</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="file-dialog">
+    <form method="dialog" class="file-dialog">
+      <h2 id="fd-title">Open recording</h2>
+      <div class="field-row">
+        <button type="button" class="icon-btn sm" id="fd-up" title="Parent folder">
+          <svg viewBox="0 0 24 24" class="icon"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+        <input type="text" id="fd-path" spellcheck="false" title="Folder; type a path and press Enter">
+      </div>
+      <div class="fd-list" id="fd-list"></div>
+      <div class="field-row" id="fd-name-row" hidden>
+        <label for="fd-name" class="muted small">Name</label>
+        <input type="text" id="fd-name" spellcheck="false">
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="fd-cancel">Cancel</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="fd-ok" disabled>Open</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="wide">
+    <form method="dialog" class="settings">
+      <nav class="settings-nav" id="settings-nav"></nav>
+      <div class="settings-main">
+        <h2 id="settings-title">Settings</h2>
+        <div class="settings-rows" id="settings-rows"></div>
+        <div class="muted small settings-file" id="settings-file"></div>
+        <div class="dialog-actions">
+          <button type="button" class="btn ghost" id="settings-cancel">Cancel</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn danger" id="settings-reset" title="Set every value back to its default (saved with Save)">Reset all</button>
+          <button type="button" class="btn primary" id="settings-save">Save</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+</body>
+</html>

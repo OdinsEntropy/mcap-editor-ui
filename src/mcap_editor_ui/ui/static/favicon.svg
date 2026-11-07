@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- MCAP Editor UI: tracks of a recording and a pencil on the orange square -->
+  <rect width="32" height="32" rx="7" fill="#ff7a45"/>
+  <g stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none">
+    <path d="M7 10h11M7 16h7M7 22h4"/>
+  </g>
+  <path d="M23.2 7.6a2 2 0 0 1 2.8 0l1 1a2 2 0 0 1 0 2.8L17 21.4l-4.9 1.4 1.4-4.9z" fill="#fff"/>
+  <path d="M21.6 9.2l3.8 3.8" stroke="#ff7a45" stroke-width="1.4"/>
+</svg>
